@@ -1,22 +1,31 @@
 import pygame
+from pygame.locals import *
 import sys
 
 # Initialize pygame and its modules
 pygame.init()
 
+
+vec = pygame.math.Vector2 
+
 # Screen configuration
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 600
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+WIDTH = 800
+HEIGHT = 600
+ACC = 2
+FRIC = -0.12
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Moving Dot Game")
 
+
+displaysurface = pygame.display.set_mode((WIDTH, HEIGHT))
+
 # Clock to control frame rate
-clock = pygame.time.Clock()
 FPS = 60
+FramePerSec = pygame.time.Clock()
 
 # Dot properties
-dot_x = SCREEN_WIDTH // 2  # Start at center x
-dot_y = SCREEN_HEIGHT // 2  # Start at center y
+dot_x = WIDTH // 2  # Start at center x
+dot_y = HEIGHT // 2  # Start at center y
 dot_radius = 10
 dot_color = (255, 255, 255)  # White
 
@@ -24,6 +33,90 @@ dot_color = (255, 255, 255)  # White
 velocity_x = 0
 velocity_y = 0
 SPEED = 5  # Pixels per frame when moving
+
+
+class Player(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__() 
+        self.surf = pygame.Surface((30, 30))
+        self.surf.fill((128,255,40))
+        self.rect = self.surf.get_rect()
+   
+        self.pos = vec((10, 385))
+        self.vel = vec(0,0)
+        self.acc = vec(0,0)
+ 
+    def move(self):
+        self.acc = vec(0,0.05)
+    
+        pressed_keys = pygame.key.get_pressed()            
+        if pressed_keys[K_LEFT]:
+            self.acc.x = -ACC
+        if pressed_keys[K_RIGHT]:
+            self.acc.x = ACC
+             
+        self.acc.x += self.vel.x * FRIC
+        self.vel += self.acc
+        self.pos += self.vel + 0.5 * self.acc
+         
+        if self.pos.x > WIDTH:
+            self.pos.x = 0
+        if self.pos.x < 0:
+            self.pos.x = WIDTH
+            
+        self.rect.midbottom = self.pos 
+
+
+    def update(self):
+        hits = pygame.sprite.spritecollide(P1 , platforms, False)
+        if hits:
+            self.pos.y = hits[0].rect.top + 1
+            self.vel.y = 0
+
+
+        ramp_hit = pygame.sprite.spritecollide(P1, ramps, False)
+        if ramp_hit:
+            self.vel.y = 0
+            
+            
+            D_rect = ramp_hit[0].rect
+            my_rect = P1.rect
+
+            dia_height = D_rect.height * (my_rect.right-D_rect.left) / D_rect.width
+            D_rect_top = D_rect.bottom - round(dia_height)
+            self.pos.y = D_rect_top
+        
+ 
+class Platform(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__()
+        self.surf = pygame.Surface((WIDTH, 20))
+        self.surf.fill((255,0,0))
+        self.rect = self.surf.get_rect(center = (WIDTH/2, HEIGHT - 10))
+
+class Ramp(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__()
+        self.surf = pygame.Surface((100, 60))
+        self.surf.fill((255,255,0))
+        self.rect = self.surf.get_rect(center = (WIDTH/2, HEIGHT - 50))
+
+
+PT1 = Platform()
+R1 = Ramp()
+P1 = Player()
+ 
+all_sprites = pygame.sprite.Group()
+all_sprites.add(PT1)
+all_sprites.add(R1)
+all_sprites.add(P1)
+
+platforms = pygame.sprite.Group()
+platforms.add(PT1)
+
+ramps = pygame.sprite.Group()
+ramps.add(R1)
+
 
 # Main game loop
 running = True
@@ -62,22 +155,26 @@ while running:
 
     # Wrap around screen edges - dot reappears on opposite side
     if dot_x < 0:
-        dot_x = SCREEN_WIDTH
-    elif dot_x > SCREEN_WIDTH:
+        dot_x = WIDTH
+    elif dot_x > WIDTH:
         dot_x = 0
 
     if dot_y < 0:
-        dot_y = SCREEN_HEIGHT
-    elif dot_y > SCREEN_HEIGHT:
+        dot_y = HEIGHT
+    elif dot_y > HEIGHT:
         dot_y = 0
 
-    # Rendering - draw everything to the screen
-    screen.fill((0, 0, 0))  # Clear screen with black background
-    pygame.draw.circle(screen, dot_color, (int(dot_x), int(dot_y)), dot_radius)  # Draw the dot
-    pygame.display.flip()  # Update the display with everything we drew
 
-    # Cap the frame rate to ensure consistent speed across different machines
-    clock.tick(FPS)
+    #rendering 
+    displaysurface.fill((0,0,0))
+ 
+    P1.update()
+    P1.move()
+    for entity in all_sprites:
+        displaysurface.blit(entity.surf, entity.rect)
+    
+    pygame.display.update()
+    FramePerSec.tick(FPS)
 
 # Clean up and quit
 pygame.quit()
